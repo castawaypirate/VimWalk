@@ -1,0 +1,17 @@
+{
+  "name": "vimwalk",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "web-ext run --source-dir ./src --firefox-profile ./firefox-profile --keep-profile-changes",
+    "lint": "web-ext lint --source-dir ./src",
+    "build": "web-ext build --source-dir ./src"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "web-ext": "^9.2.0"
+  }
+}

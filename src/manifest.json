@@ -1,0 +1,29 @@
+{
+    "manifest_version": 3,
+    "name": "VimWalk",
+    "version": "1.0",
+    "description": "Navigate static web content using Vim's w motion.",
+    "permissions": [
+        "activeTab",
+        "scripting"
+    ],
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "vimwalk@example.com",
+            "strict_min_version": "42.0"
+        }
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "css": [
+                "styles.css"
+            ]
+        }
+    ]
+}

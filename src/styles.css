@@ -1,0 +1,12 @@
+/* Ensure the selection is visible even if the site has weird defaults */
+::selection {
+    background-color: #ff9632 !important;
+    /* VimWalk Orange? */
+    color: #000 !important;
+}
+
+/* Also ensure normal vendor prefixes just in case */
+::-moz-selection {
+    background-color: #ff9632 !important;
+    color: #000 !important;
+}
