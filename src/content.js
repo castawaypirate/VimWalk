@@ -35,7 +35,9 @@ function handleNavigation() {
     if (!ensureSelection()) return;
 
     // Start from the end of the current selection (or caret)
-    selection.collapseToEnd();
+    if (!visualMode) {
+        selection.collapseToEnd();
+    }
 
     let currentNode = selection.focusNode;
     let currentOffset = selection.focusOffset;
@@ -55,6 +57,7 @@ function handleNavigation() {
         },
         false
     );
+
 
     walker.currentNode = currentNode;
 
@@ -106,11 +109,15 @@ function handleNavigation() {
                 if (state === 'seeking_start') {
                     if (isWordChar) {
                         // Found the start of the next word!
-                        const range = document.createRange();
-                        range.setStart(currentIterationNode, i);
-                        range.setEnd(currentIterationNode, i + 1); // Highlight first char
-                        selection.removeAllRanges();
-                        selection.addRange(range);
+                        if (visualMode) {
+                            selection.extend(currentIterationNode, i);
+                        } else {
+                            const range = document.createRange();
+                            range.setStart(currentIterationNode, i);
+                            range.setEnd(currentIterationNode, i + 1); // Highlight first char
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                        }
                         return;
                     }
                 }
@@ -122,9 +129,43 @@ function handleNavigation() {
     }
 }
 
+let visualMode = false;
+
 document.addEventListener('keydown', (e) => {
     // Context safety: ignore if typing in input
     if (isInputActive()) return;
+
+    if (e.key === 'v' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        visualMode = !visualMode;
+        console.log(`VimWalk: Visual Mode ${visualMode ? 'ON' : 'OFF'}`);
+        e.preventDefault();
+        return;
+    }
+
+    if (e.key === 'y' && visualMode && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        const selection = window.getSelection();
+        const text = selection.toString();
+        if (text) {
+            navigator.clipboard.writeText(text).then(() => {
+                console.log("VimWalk: Yanked to clipboard.");
+            }).catch(err => {
+                console.error("VimWalk: Failed to copy", err);
+            });
+        }
+        visualMode = false;
+        selection.collapseToEnd();
+        e.preventDefault();
+        return;
+    }
+
+    if (e.key === 'Escape') {
+        if (visualMode) {
+            visualMode = false;
+            console.log("VimWalk: Visual Mode OFF");
+            window.getSelection().collapseToEnd(); // Collapse to end for better reading flow
+        }
+        return;
+    }
 
     if (e.key === 'w' && !e.ctrlKey && !e.altKey && !e.metaKey) {
         handleNavigation();
