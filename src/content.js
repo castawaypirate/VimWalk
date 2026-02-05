@@ -14,7 +14,6 @@ function ensureSelection() {
     const selection = window.getSelection();
     if (selection.rangeCount === 0 || selection.isCollapsed && selection.focusNode === null) {
         // Simple initialization: try to select the first text node in body
-        // This is a naive approach; we might want a TreeWalker later for better precision
         const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
         const firstNode = walker.nextNode();
         if (firstNode) {
@@ -38,19 +37,88 @@ function handleNavigation() {
     // Start from the end of the current selection (or caret)
     selection.collapseToEnd();
 
-    // Move forward by word
-    // Note: Behavior varies by platform. Firefox might stop before the space.
-    selection.modify("move", "forward", "word");
+    let currentNode = selection.focusNode;
+    let currentOffset = selection.focusOffset;
 
-    // Extend by one character to highlight the first letter
-    selection.modify("extend", "forward", "character");
+    // Create a TreeWalker to navigate text nodes
+    const walker = document.createTreeWalker(
+        document.body,
+        NodeFilter.SHOW_TEXT,
+        {
+            acceptNode: (node) => {
+                // Ignore invisible nodes or script/style tags
+                if (node.parentElement.offsetParent === null) return NodeFilter.FILTER_REJECT;
+                const tag = node.parentElement.tagName.toLowerCase();
+                if (tag === 'script' || tag === 'style' || tag === 'noscript') return NodeFilter.FILTER_REJECT;
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        },
+        false
+    );
 
-    // Correction: If the selection is whitespace, it means we landed on a space.
-    // We should advance until we find a non-whitespace character.
-    // This allows us to "skip" spaces if the browser's 'word' boundary included them or stopped early.
-    while (selection.toString().trim() === "" && selection.toString().length > 0) {
-        selection.collapseToEnd();
-        selection.modify("extend", "forward", "character");
+    walker.currentNode = currentNode;
+
+    // Regex for finding the Start of a Word.
+    const wordParam = /[a-zA-Z0-9_]/;
+
+    let searchNode = currentNode;
+    let searchOffset = currentOffset;
+    let state = 'seeking_break';
+
+    // INITIAL STATE CHECK
+    if (searchNode.nodeType === Node.TEXT_NODE) {
+        const charAtCursor = (searchOffset < searchNode.textContent.length) ? searchNode.textContent[searchOffset] : null;
+
+        if (!charAtCursor) {
+            state = 'seeking_break';
+        } else if (!wordParam.test(charAtCursor)) {
+            state = 'seeking_start';
+        } else {
+            state = 'seeking_break';
+        }
+    } else {
+        state = 'seeking_start';
+    }
+
+    const maxNodes = 1000;
+    let nodesChecked = 0;
+    let currentIterationNode = searchNode;
+
+    while (currentIterationNode && nodesChecked < maxNodes) {
+        nodesChecked++;
+
+        if (currentIterationNode.nodeType === Node.TEXT_NODE) {
+            const text = currentIterationNode.textContent;
+
+            // If this is the starting node, start at offset. Otherwise start at 0.
+            const startIdx = (currentIterationNode === searchNode) ? searchOffset : 0;
+
+            for (let i = startIdx; i < text.length; i++) {
+                const char = text[i];
+                const isWordChar = wordParam.test(char);
+
+                if (state === 'seeking_break') {
+                    if (!isWordChar) {
+                        state = 'seeking_start';
+                    }
+                }
+
+                if (state === 'seeking_start') {
+                    if (isWordChar) {
+                        // Found the start of the next word!
+                        const range = document.createRange();
+                        range.setStart(currentIterationNode, i);
+                        range.setEnd(currentIterationNode, i + 1); // Highlight first char
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                        return;
+                    }
+                }
+            }
+        }
+
+        // Move to next node
+        currentIterationNode = walker.nextNode();
     }
 }
 
@@ -58,18 +126,10 @@ document.addEventListener('keydown', (e) => {
     // Context safety: ignore if typing in input
     if (isInputActive()) return;
 
-    // Check for 'w' key (lowercase)
-    // We should probably allow strict 'w' (without modifiers like Ctrl/Alt/Meta)
-    // Shift+w (W) is typically 'move back' or 'move BIG word' in Vim, but brief says 'w' = forward.
-    // Let's stick to simple 'w' for now.
-
     if (e.key === 'w' && !e.ctrlKey && !e.altKey && !e.metaKey) {
         handleNavigation();
-        // Prevent default only if we effectively handled it? 
-        // Or always prevent to avoid typing 'w' if it accidentally focuses something?
-        // Usually safe to prevent default for navigation keys.
         e.preventDefault();
     }
 });
 
-console.log("VimWalk: Core logic loaded.");
+console.log("VimWalk: Robust Logic Loaded.");
