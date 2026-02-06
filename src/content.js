@@ -334,9 +334,165 @@ function moveTo(node, offset, extend) {
             window.scrollBy({ top: rect.top - targetPosition, behavior: 'smooth' });
         }
     }
+
+    // Update focus highlight if focus mode is enabled
+    if (focusMode && scrollElement) {
+        updateFocusHighlight(scrollElement);
+    }
 }
 
 let visualMode = false;
+let focusMode = false;
+let focusPaused = false; // Temporarily hide overlay on Escape
+let focusOverlays = null; // Array of 4 overlay divs
+let currentHighlightedElement = null;
+
+/**
+ * Create the 2 focus overlay panels (top and bottom bands)
+ */
+function createFocusOverlays() {
+    if (!focusOverlays) {
+        focusOverlays = [];
+        const positions = ['top', 'bottom'];
+        positions.forEach(pos => {
+            const overlay = document.createElement('div');
+            overlay.className = 'vimwalk-focus-overlay';
+            overlay.dataset.position = pos;
+            document.body.appendChild(overlay);
+            focusOverlays.push(overlay);
+        });
+    }
+    return focusOverlays;
+}
+
+/**
+ * Remove all focus overlays from the DOM
+ */
+function removeFocusOverlay() {
+    if (focusOverlays) {
+        focusOverlays.forEach(overlay => overlay.remove());
+        focusOverlays = null;
+    }
+    if (currentHighlightedElement) {
+        currentHighlightedElement.classList.remove('vimwalk-focus-highlight');
+        currentHighlightedElement = null;
+    }
+}
+
+/**
+ * Position the overlay panels (top and bottom bands)
+ */
+function positionOverlays(element) {
+    if (!focusOverlays || !element) return;
+
+    const rect = element.getBoundingClientRect();
+    const padding = 8; // Gap around the element
+
+    // Only need top and bottom boundaries
+    const top = Math.max(0, rect.top - padding);
+    const bottom = Math.min(window.innerHeight, rect.bottom + padding);
+
+    focusOverlays.forEach(overlay => {
+        const pos = overlay.dataset.position;
+        if (pos === 'top') {
+            overlay.style.cssText = `
+                position: fixed; top: 0; left: 0;
+                width: 100vw; height: ${top}px;
+            `;
+        } else if (pos === 'bottom') {
+            overlay.style.cssText = `
+                position: fixed; top: ${bottom}px; left: 0;
+                width: 100vw; height: calc(100vh - ${bottom}px);
+            `;
+        }
+    });
+}
+
+/**
+ * Update which element is highlighted in focus mode
+ */
+function updateFocusHighlight(element) {
+    if (!focusMode) return;
+
+    // Remove highlight from previous element
+    if (currentHighlightedElement && currentHighlightedElement !== element) {
+        currentHighlightedElement.classList.remove('vimwalk-focus-highlight');
+    }
+
+    // Add highlight to new element and reposition overlays
+    if (element) {
+        element.classList.add('vimwalk-focus-highlight');
+        currentHighlightedElement = element;
+        positionOverlays(element);
+    }
+}
+
+/**
+ * Enable focus mode
+ */
+function enableFocusMode() {
+    focusMode = true;
+    createFocusOverlays();
+
+    // Ensure we have a selection, initialize if needed
+    ensureSelection();
+
+    // Highlight current paragraph if we have a selection
+    const selection = window.getSelection();
+    if (selection.focusNode) {
+        let block = selection.focusNode.parentElement;
+        while (block && getComputedStyle(block).display === 'inline') {
+            block = block.parentElement;
+        }
+        if (block && block !== document.body) {
+            updateFocusHighlight(block);
+        }
+    }
+    console.log('VimWalk: Focus Mode ON');
+}
+
+/**
+ * Disable focus mode
+ */
+function disableFocusMode() {
+    focusMode = false;
+    focusPaused = false;
+    removeFocusOverlay();
+    console.log('VimWalk: Focus Mode OFF');
+}
+
+/**
+ * Pause focus mode (hide overlay, keep focus mode enabled)
+ */
+function pauseFocusMode() {
+    if (focusMode && !focusPaused) {
+        focusPaused = true;
+        if (focusOverlays) {
+            focusOverlays.forEach(overlay => overlay.style.display = 'none');
+        }
+        if (currentHighlightedElement) {
+            currentHighlightedElement.classList.remove('vimwalk-focus-highlight');
+        }
+        console.log('VimWalk: Focus Mode paused');
+    }
+}
+
+/**
+ * Resume focus mode (show overlay again)
+ */
+function resumeFocusMode() {
+    if (focusMode && focusPaused) {
+        focusPaused = false;
+        if (focusOverlays) {
+            focusOverlays.forEach(overlay => overlay.style.display = '');
+        }
+        if (currentHighlightedElement) {
+            currentHighlightedElement.classList.add('vimwalk-focus-highlight');
+            positionOverlays(currentHighlightedElement);
+        }
+        console.log('VimWalk: Focus Mode resumed');
+    }
+}
 
 document.addEventListener('keydown', (e) => {
     // Context safety: ignore if typing in input
@@ -369,15 +525,55 @@ document.addEventListener('keydown', (e) => {
         if (visualMode) {
             visualMode = false;
             console.log("VimWalk: Visual Mode OFF");
-            window.getSelection().collapseToEnd(); // Collapse to end for better reading flow
+            window.getSelection().collapseToEnd();
+        }
+        // Pause focus mode on Escape
+        if (focusMode && !focusPaused) {
+            pauseFocusMode();
         }
         return;
     }
 
     if ((e.key === 'w' || e.key === 'b' || e.key === '}' || e.key === '{') && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        // Resume focus mode if paused
+        if (focusMode && focusPaused) {
+            resumeFocusMode();
+        }
         handleNavigation(e.key);
         e.preventDefault();
     }
 });
+
+// Listen for messages from popup
+browser.runtime.onMessage.addListener((message) => {
+    if (message.type === 'FOCUS_MODE_TOGGLE') {
+        if (message.enabled) {
+            enableFocusMode();
+        } else {
+            disableFocusMode();
+        }
+    }
+});
+
+// Initialize focus mode state from storage on load
+browser.storage.local.get('focusMode').then((result) => {
+    if (result.focusMode) {
+        enableFocusMode();
+    }
+});
+
+// Reposition overlays when page scrolls (for smooth scroll sync)
+window.addEventListener('scroll', () => {
+    if (focusMode && currentHighlightedElement) {
+        positionOverlays(currentHighlightedElement);
+    }
+}, { passive: true });
+
+// Also reposition on resize
+window.addEventListener('resize', () => {
+    if (focusMode && currentHighlightedElement) {
+        positionOverlays(currentHighlightedElement);
+    }
+}, { passive: true });
 
 console.log("VimWalk: Robust Logic Loaded.");

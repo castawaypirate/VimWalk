@@ -10,3 +10,16 @@
     background-color: #ff9632 !important;
     color: #000 !important;
 }
+
+/* Focus Mode Overlay panels */
+.vimwalk-focus-overlay {
+    background: rgba(0, 0, 0, 0.75);
+    pointer-events: none;
+    z-index: 999999;
+}
+
+/* Subtle highlight on the focused paragraph */
+.vimwalk-focus-highlight {
+    box-shadow: 0 0 0 4px rgba(255, 150, 50, 0.4);
+    border-radius: 4px;
+}
