@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "web-ext run --source-dir ./src --firefox-profile ./firefox-profile --keep-profile-changes",
+    "start": "web-ext run --source-dir ./src --firefox-profile ./firefox-profile --keep-profile-changes --start-url about:debugging",
     "lint": "web-ext lint --source-dir ./src",
     "build": "web-ext build --source-dir ./src"
   },

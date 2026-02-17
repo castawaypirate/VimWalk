@@ -201,104 +201,57 @@ function handleNavigation(key) {
     }
 
     if (key === 'b') {
-        // Backward logic
-        // We are looking for the *start* of a word.
-        // If we are ON a word char, we might be in the middle of a word.
-        // 1. Scan back to find start of current word?
-        // 2. OR if we are at start of word, scan back to previous word.
+        // Vim 'b': jump backward to the start of the previous word.
+        // Two-phase scan across text node boundaries:
+        //   Phase 1 (skip_non_word): skip non-word chars backward
+        //   Phase 2 (skip_word): skip word chars backward, tracking the earliest position
+        // When phase 2 hits a non-word char (or content runs out), land on the tracked position.
 
-        let state = 'initial';
-        // Logic:
-        // Scan backwards.
-        // If we hit a non-word char, we are definitely out of a word.
-        // If we then hit a word char, we are in a NEW word (the previous one).
-        // We need to keep going back until we hit non-word OR start of node to find the START of that word.
+        let phase = 'skip_non_word';
+        let candidateNode = null;
+        let candidateOffset = -1;
+        let scanNode = currentNode;
+        let scanIdx = (scanNode.nodeType === Node.TEXT_NODE) ? currentOffset - 1 : -1;
 
-        // Simpler Vim 'b' rule: 
-        // Go to [start of word].
+        while (nodesChecked < maxNodes) {
+            if (scanNode && scanNode.nodeType === Node.TEXT_NODE) {
+                const text = scanNode.textContent;
+                if (scanIdx >= text.length) scanIdx = text.length - 1;
 
-        let subNodesChecked = 0;
+                for (let i = scanIdx; i >= 0; i--) {
+                    const isWord = wordParam.test(text[i]);
 
-        // We need to iterate characters backwards
-
-        // Helper to get text backwards
-
-        while (currentIterationNode && subNodesChecked < maxNodes) {
-            subNodesChecked++;
-            if (currentIterationNode.nodeType === Node.TEXT_NODE) {
-                const text = currentIterationNode.textContent;
-                // start index: if first node, searchOffset - 1. Else length - 1.
-                let startIdx = (currentIterationNode === currentNode) ? currentOffset - 1 : text.length - 1;
-
-                for (let i = startIdx; i >= 0; i--) {
-                    const isWordChar = wordParam.test(text[i]);
-
-                    if (state === 'initial') {
-                        if (!isWordChar) {
-                            state = 'seeking_word_end'; // Found space, now looking for word text
+                    if (phase === 'skip_non_word') {
+                        if (isWord) {
+                            phase = 'skip_word';
+                            candidateNode = scanNode;
+                            candidateOffset = i;
+                        }
+                    } else { // phase === 'skip_word'
+                        if (isWord) {
+                            candidateNode = scanNode;
+                            candidateOffset = i;
                         } else {
-                            // We are on a word char.
-                            // Are we at the START of the current word?
-                            // Check previous char
-                            if (i > 0 && wordParam.test(text[i - 1])) {
-                                // We are in the middle/end of a word.
-                                // 'b' should go to start of THIS word?
-                                // Vim: "word backwards". `he|llo` -> `|hello`. `|hello` -> `|prev`.
-                                state = 'seeking_this_word_start';
-                            } else {
-                                // We are exactly at start of word (or i=0 and prev node check needed?)
-                                // Determine if we should go to previous word. 
-                                // If we just started, yes.
-                                state = 'seeking_word_end';
-                            }
-                        }
-                    }
-
-                    if (state === 'seeking_this_word_start') {
-                        if (!isWordChar) {
-                            // Oops, we passed the start. The start was i + 1.
-                            moveTo(currentIterationNode, i + 1, visualMode);
+                            // Hit non-word boundary — candidate is the word start
+                            moveTo(candidateNode, candidateOffset, visualMode);
                             return;
-                        }
-                        if (i === 0) {
-                            // We hit start of node. 
-                            // Use logic: if prev node ends with word char, continue. Else this is start.
-                            // Check previous node in next iteration? 
-                            // Actually walker.previousNode() will give us that.
-                            // For now simpler: assume start of node is start of word implies valid break if across nodes? 
-                            // Text nodes often split arbitrarily. 
-                            // Let's assume adjacent text nodes merge.
-                            // Complicated. 
-                            // Simplified: if i=0, stopping there is okay-ish, or better:
-                            // Check if previous node exists and ends with word char.
-                            // Let's just stop at i=0 for now.
-                            moveTo(currentIterationNode, 0, visualMode);
-                            return;
-                        }
-                    }
-
-                    if (state === 'seeking_word_end') {
-                        if (isWordChar) {
-                            // Found end of previous word (since we go backwards).
-                            // Now find its start.
-                            state = 'seeking_this_word_start';
-                            // But we are AT i.
-                            // Process this i in next state or just fall through?
-                            // Fall through logic:
-                            // Re-evaluate 'seeking_this_word_start' logic for this char?
-                            // Actually we can just switch state and continue loop, but we need to handle i.
-                            // Let's just say we found a char. The word started... somewhere before.
-                            // Continue loop.
-                            if (i === 0) {
-                                moveTo(currentIterationNode, 0, visualMode);
-                                return;
-                            }
                         }
                     }
                 }
             }
-            currentIterationNode = walker.previousNode();
+
+            // Move to the previous text node (walker filters out invisible/script/style)
+            nodesChecked++;
+            scanNode = walker.previousNode();
+            if (!scanNode) break;
+            scanIdx = scanNode.textContent.length - 1;
         }
+
+        // Reached start of content while scanning — land on earliest word char found
+        if (candidateNode) {
+            moveTo(candidateNode, candidateOffset, visualMode);
+        }
+        return;
     }
 }
 
