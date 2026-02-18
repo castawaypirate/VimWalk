@@ -47,6 +47,27 @@ function createWalker(root, what, current) {
     return walker;
 }
 
+/**
+ * Walk up the DOM from `element` to find the nearest block-level ancestor.
+ * Skips all inline-level display values so paragraph detection works with
+ * modern CSS layouts (inline-block, inline-flex, inline-grid, etc.).
+ */
+const inlineDisplays = new Set([
+    'inline', 'inline-block', 'inline-flex', 'inline-grid',
+    'inline-table', 'contents', 'ruby', 'ruby-text',
+    'ruby-base', 'ruby-text-container', 'ruby-base-container',
+]);
+
+function getBlockAncestor(element) {
+    let el = element;
+    while (el && el !== document.body) {
+        const display = getComputedStyle(el).display;
+        if (!inlineDisplays.has(display)) return el;
+        el = el.parentElement;
+    }
+    return el || document.body;
+}
+
 function handleNavigation(key) {
     const selection = window.getSelection();
 
@@ -95,20 +116,14 @@ function handleNavigation(key) {
     const isBackward = (key === 'b');
 
     if (key === '}') {
-        let startBlock = currentIterationNode.parentElement;
-        while (startBlock && getComputedStyle(startBlock).display === 'inline') {
-            startBlock = startBlock.parentElement;
-        }
+        let startBlock = getBlockAncestor(currentIterationNode.parentElement);
 
         while (currentIterationNode && nodesChecked < maxNodes) {
             nodesChecked++;
             currentIterationNode = walker.nextNode();
 
             if (currentIterationNode) {
-                let currBlock = currentIterationNode.parentElement;
-                while (currBlock && getComputedStyle(currBlock).display === 'inline') {
-                    currBlock = currBlock.parentElement;
-                }
+                let currBlock = getBlockAncestor(currentIterationNode.parentElement);
 
                 // If we found a node in a different block, stop
                 if (currBlock !== startBlock) {
@@ -121,10 +136,7 @@ function handleNavigation(key) {
     }
 
     if (key === '{') {
-        let startBlock = currentIterationNode.parentElement;
-        while (startBlock && getComputedStyle(startBlock).display === 'inline') {
-            startBlock = startBlock.parentElement;
-        }
+        let startBlock = getBlockAncestor(currentIterationNode.parentElement);
 
         let targetNode = null;
         let targetBlock = null;
@@ -134,10 +146,7 @@ function handleNavigation(key) {
             currentIterationNode = walker.previousNode();
 
             if (currentIterationNode) {
-                let currBlock = currentIterationNode.parentElement;
-                while (currBlock && getComputedStyle(currBlock).display === 'inline') {
-                    currBlock = currBlock.parentElement;
-                }
+                let currBlock = getBlockAncestor(currentIterationNode.parentElement);
 
                 // If we found a node in a different block, track it
                 if (currBlock !== startBlock) {
@@ -270,10 +279,7 @@ function moveTo(node, offset, extend) {
 
     // Keep cursor in the top 0-30% of the viewport for better reading flow
     // Use block-level ancestor for consistent scroll behavior (not inline elements like <a>)
-    let scrollElement = node.parentElement;
-    while (scrollElement && getComputedStyle(scrollElement).display === 'inline') {
-        scrollElement = scrollElement.parentElement;
-    }
+    let scrollElement = getBlockAncestor(node.parentElement);
 
     if (scrollElement) {
         const rect = scrollElement.getBoundingClientRect();
@@ -291,13 +297,44 @@ function moveTo(node, offset, extend) {
 
 let visualMode = false;
 
+// Inject the mode indicator element
+const modeIndicator = document.createElement('div');
+modeIndicator.id = 'vimwalk-mode-indicator';
+modeIndicator.textContent = '-- VISUAL --';
+document.documentElement.appendChild(modeIndicator);
+
+function setVisualMode(on) {
+    visualMode = on;
+    document.documentElement.classList.toggle('vimwalk-visual', on);
+    modeIndicator.classList.toggle('visible', on);
+
+    const sel = window.getSelection();
+
+    if (!on && sel.rangeCount > 0) {
+        // Exiting visual mode: restore single-char cursor at focus position
+        const node = sel.focusNode;
+        const offset = sel.focusOffset;
+        sel.removeAllRanges();
+        if (node && node.nodeType === Node.TEXT_NODE && offset < node.textContent.length) {
+            const range = document.createRange();
+            range.setStart(node, offset);
+            range.setEnd(node, offset + 1);
+            sel.addRange(range);
+        }
+    } else if (sel.rangeCount > 0) {
+        // Entering visual mode: force re-render of ::selection color
+        const range = sel.getRangeAt(0).cloneRange();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }
+}
+
 document.addEventListener('keydown', (e) => {
     // Context safety: ignore if typing in input
     if (isInputActive()) return;
 
     if (e.key === 'v' && !e.ctrlKey && !e.altKey && !e.metaKey) {
-        visualMode = !visualMode;
-        console.log(`VimWalk: Visual Mode ${visualMode ? 'ON' : 'OFF'}`);
+        setVisualMode(!visualMode);
         e.preventDefault();
         return;
     }
@@ -312,17 +349,14 @@ document.addEventListener('keydown', (e) => {
                 console.error("VimWalk: Failed to copy", err);
             });
         }
-        visualMode = false;
-        selection.collapseToEnd();
+        setVisualMode(false);
         e.preventDefault();
         return;
     }
 
     if (e.key === 'Escape') {
         if (visualMode) {
-            visualMode = false;
-            console.log("VimWalk: Visual Mode OFF");
-            window.getSelection().collapseToEnd(); // Collapse to end for better reading flow
+            setVisualMode(false);
         }
         return;
     }

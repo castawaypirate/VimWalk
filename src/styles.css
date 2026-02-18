@@ -1,12 +1,37 @@
-/* Ensure the selection is visible even if the site has weird defaults */
+/* Normal mode: orange cursor highlight */
 ::selection {
     background-color: #ff9632 !important;
-    /* VimWalk Orange? */
     color: #000 !important;
 }
 
-/* Also ensure normal vendor prefixes just in case */
-::-moz-selection {
-    background-color: #ff9632 !important;
-    color: #000 !important;
+/* Visual mode: blue/purple selection to distinguish from normal cursor */
+.vimwalk-visual ::selection {
+    background-color: #6c8ebf !important;
+    color: #fff !important;
+}
+
+/* -- VISUAL -- mode indicator pill */
+#vimwalk-mode-indicator {
+    position: fixed;
+    bottom: 12px;
+    right: 12px;
+    z-index: 2147483647;
+    padding: 4px 14px;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: #e0e0e0;
+    background: rgba(30, 30, 30, 0.85);
+    border: 1px solid rgba(108, 142, 191, 0.5);
+    border-radius: 4px;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+#vimwalk-mode-indicator.visible {
+    opacity: 1;
+    transform: translateY(0);
 }

@@ -12,10 +12,10 @@ To run this project, you need:
 
 ## Setup
 
-1.  Install dependencies:
-    ```bash
-    npm install
-    ```
+Install dependencies:
+```bash
+npm install
+```
 
 ## Development
 
