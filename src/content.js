@@ -5,6 +5,9 @@
      * VimWalk - Navigate static content with 'w'
      */
 
+    const WORD_CHAR = /[a-zA-Z0-9_]/;
+    function isWordChar(ch) { return WORD_CHAR.test(ch); }
+
     function isInputActive() {
         const activeInfo = document.activeElement;
         if (!activeInfo) return false;
@@ -71,31 +74,161 @@
         return el || document.body;
     }
 
+    const MAX_NODES = 1000;
+
+    function motionBraceForward(currentIterationNode, _currentOffset, walker, extend) {
+        let nodesChecked = 0;
+        let startBlock = getBlockAncestor(currentIterationNode.parentElement);
+
+        while (currentIterationNode && nodesChecked < MAX_NODES) {
+            nodesChecked++;
+            currentIterationNode = walker.nextNode();
+
+            if (currentIterationNode) {
+                let currBlock = getBlockAncestor(currentIterationNode.parentElement);
+
+                if (currBlock !== startBlock) {
+                    moveTo(currentIterationNode, 0, extend);
+                    return;
+                }
+            }
+        }
+    }
+
+    function motionBraceBackward(currentIterationNode, _currentOffset, walker, extend) {
+        let nodesChecked = 0;
+        let startBlock = getBlockAncestor(currentIterationNode.parentElement);
+        let targetNode = null;
+        let targetBlock = null;
+
+        while (currentIterationNode && nodesChecked < MAX_NODES) {
+            nodesChecked++;
+            currentIterationNode = walker.previousNode();
+
+            if (currentIterationNode) {
+                let currBlock = getBlockAncestor(currentIterationNode.parentElement);
+
+                if (currBlock !== startBlock) {
+                    if (targetBlock === null) {
+                        targetBlock = currBlock;
+                    }
+                    if (currBlock === targetBlock) {
+                        targetNode = currentIterationNode;
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (targetNode) {
+            moveTo(targetNode, 0, extend);
+        }
+    }
+
+    function motionW(currentNode, currentOffset, walker, extend) {
+        let nodesChecked = 0;
+        let state = 'seeking_break';
+
+        let searchNode = currentNode;
+        let searchOffset = currentOffset;
+
+        if (searchNode.nodeType === Node.TEXT_NODE) {
+            const charAtCursor = (searchOffset < searchNode.textContent.length) ? searchNode.textContent[searchOffset] : null;
+            if (!charAtCursor) state = 'seeking_break';
+            else if (!isWordChar(charAtCursor)) state = 'seeking_start';
+            else state = 'seeking_break';
+        } else {
+            state = 'seeking_start';
+        }
+
+        let currentIterationNode = currentNode;
+        while (currentIterationNode && nodesChecked < MAX_NODES) {
+            nodesChecked++;
+            if (currentIterationNode.nodeType === Node.TEXT_NODE) {
+                const text = currentIterationNode.textContent;
+                const startIdx = (currentIterationNode === searchNode) ? searchOffset : 0;
+
+                for (let i = startIdx; i < text.length; i++) {
+                    const charIsWord = isWordChar(text[i]);
+                    if (state === 'seeking_break') {
+                        if (!charIsWord) state = 'seeking_start';
+                    } else if (state === 'seeking_start') {
+                        if (charIsWord) {
+                            moveTo(currentIterationNode, i, extend);
+                            return;
+                        }
+                    }
+                }
+            }
+            currentIterationNode = walker.nextNode();
+        }
+    }
+
+    function motionB(currentNode, currentOffset, walker, extend) {
+        let nodesChecked = 0;
+        let phase = 'skip_non_word';
+        let candidateNode = null;
+        let candidateOffset = -1;
+        let scanNode = currentNode;
+        let scanIdx = (scanNode.nodeType === Node.TEXT_NODE) ? currentOffset - 1 : -1;
+
+        while (nodesChecked < MAX_NODES) {
+            if (scanNode && scanNode.nodeType === Node.TEXT_NODE) {
+                const text = scanNode.textContent;
+                if (scanIdx >= text.length) scanIdx = text.length - 1;
+
+                for (let i = scanIdx; i >= 0; i--) {
+                    const isWord = isWordChar(text[i]);
+
+                    if (phase === 'skip_non_word') {
+                        if (isWord) {
+                            phase = 'skip_word';
+                            candidateNode = scanNode;
+                            candidateOffset = i;
+                        }
+                    } else {
+                        if (isWord) {
+                            candidateNode = scanNode;
+                            candidateOffset = i;
+                        } else {
+                            moveTo(candidateNode, candidateOffset, extend);
+                            return;
+                        }
+                    }
+                }
+            }
+
+            nodesChecked++;
+            scanNode = walker.previousNode();
+            if (!scanNode) break;
+            scanIdx = scanNode.textContent.length - 1;
+        }
+
+        if (candidateNode) {
+            moveTo(candidateNode, candidateOffset, extend);
+        }
+    }
+
+    const MOTIONS = {
+        'w': motionW,
+        'b': motionB,
+        '}': motionBraceForward,
+        '{': motionBraceBackward,
+    };
+
     function handleNavigation(key) {
+        const fn = MOTIONS[key];
+        if (!fn) return;
+
         const selection = window.getSelection();
 
-        // Ensure we have a starting point
         if (!ensureSelection()) return;
 
         let currentNode = selection.focusNode;
         let currentOffset = selection.focusOffset;
 
-        // Start from the end of the current selection (or caret) usually,
-        // but for 'b' we might want to start from focusNode/Offset as is.
-        // Vim logic:
-        // 'w': start from current position, find next word start.
-        // 'b': start from current position, find previous word start.
-        // '}': start from current position, find next paragraph.
-
-        // If NOT visual mode, we usually collapse to a single point.
-        // For 'b', if we have a selection and not visual mode, where do we start?
-        // Standard Vim: cursor is at one end. Browser selection has anchor/focus. Focus is the "active" end.
-        // We will trust `selection.focusNode` and `selection.focusOffset`.
-
         if (!visualMode) {
-            // If we are just moving the cursor, collapse to the "active" end so we start searching from there.
-            // For 'w'/'}', we want to move forward from where we are (End).
-            // For 'b'/'{', we want to move backward from where we are (Start).
             if (key === 'b' || key === '{') {
                 selection.collapseToStart();
             } else {
@@ -103,168 +236,12 @@
             }
         }
 
-        // Re-read currentNode/Offset after collapse
         currentNode = selection.focusNode;
         currentOffset = selection.focusOffset;
 
         const walker = createWalker(document.body, NodeFilter.SHOW_TEXT, currentNode);
-        const wordParam = /[a-zA-Z0-9_]/;
-        const maxNodes = 1000;
-        let nodesChecked = 0;
-        let currentIterationNode = currentNode;
 
-        // Direction logic
-        const isForward = (key === 'w' || key === '}');
-        const isParagraphBack = (key === '{');
-        const isBackward = (key === 'b');
-
-        if (key === '}') {
-            let startBlock = getBlockAncestor(currentIterationNode.parentElement);
-
-            while (currentIterationNode && nodesChecked < maxNodes) {
-                nodesChecked++;
-                currentIterationNode = walker.nextNode();
-
-                if (currentIterationNode) {
-                    let currBlock = getBlockAncestor(currentIterationNode.parentElement);
-
-                    // If we found a node in a different block, stop
-                    if (currBlock !== startBlock) {
-                        moveTo(currentIterationNode, 0, visualMode);
-                        return;
-                    }
-                }
-            }
-            return;
-        }
-
-        if (key === '{') {
-            let startBlock = getBlockAncestor(currentIterationNode.parentElement);
-
-            let targetNode = null;
-            let targetBlock = null;
-
-            while (currentIterationNode && nodesChecked < maxNodes) {
-                nodesChecked++;
-                currentIterationNode = walker.previousNode();
-
-                if (currentIterationNode) {
-                    let currBlock = getBlockAncestor(currentIterationNode.parentElement);
-
-                    // If we found a node in a different block, track it
-                    if (currBlock !== startBlock) {
-                        // Keep going back to find the first text node of this paragraph
-                        if (targetBlock === null) {
-                            targetBlock = currBlock;
-                        }
-                        if (currBlock === targetBlock) {
-                            targetNode = currentIterationNode;
-                        } else {
-                            // We've gone past the target paragraph, stop
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (targetNode) {
-                moveTo(targetNode, 0, visualMode);
-            }
-            return;
-        }
-
-        if (key === 'w') {
-            let state = 'seeking_break'; // default assumption
-
-            let searchNode = currentNode;
-            let searchOffset = currentOffset;
-
-            // INITIAL STATE CHECK for 'w'
-            // Reuse existing logic structure roughly
-            if (searchNode.nodeType === Node.TEXT_NODE) {
-                const charAtCursor = (searchOffset < searchNode.textContent.length) ? searchNode.textContent[searchOffset] : null;
-                if (!charAtCursor) state = 'seeking_break';
-                else if (!wordParam.test(charAtCursor)) state = 'seeking_start'; // on non-word, look for word
-                else state = 'seeking_break'; // on word, look for break then word
-            } else {
-                state = 'seeking_start';
-            }
-
-            while (currentIterationNode && nodesChecked < maxNodes) {
-                nodesChecked++;
-                if (currentIterationNode.nodeType === Node.TEXT_NODE) {
-                    const text = currentIterationNode.textContent;
-                    const startIdx = (currentIterationNode === searchNode) ? searchOffset : 0;
-
-                    for (let i = startIdx; i < text.length; i++) {
-                        const isWordChar = wordParam.test(text[i]);
-                        if (state === 'seeking_break') {
-                            if (!isWordChar) state = 'seeking_start';
-                        } else if (state === 'seeking_start') {
-                            if (isWordChar) {
-                                moveTo(currentIterationNode, i, visualMode);
-                                return;
-                            }
-                        }
-                    }
-                }
-                currentIterationNode = walker.nextNode();
-            }
-        }
-
-        if (key === 'b') {
-            // Vim 'b': jump backward to the start of the previous word.
-            // Two-phase scan across text node boundaries:
-            //   Phase 1 (skip_non_word): skip non-word chars backward
-            //   Phase 2 (skip_word): skip word chars backward, tracking the earliest position
-            // When phase 2 hits a non-word char (or content runs out), land on the tracked position.
-
-            let phase = 'skip_non_word';
-            let candidateNode = null;
-            let candidateOffset = -1;
-            let scanNode = currentNode;
-            let scanIdx = (scanNode.nodeType === Node.TEXT_NODE) ? currentOffset - 1 : -1;
-
-            while (nodesChecked < maxNodes) {
-                if (scanNode && scanNode.nodeType === Node.TEXT_NODE) {
-                    const text = scanNode.textContent;
-                    if (scanIdx >= text.length) scanIdx = text.length - 1;
-
-                    for (let i = scanIdx; i >= 0; i--) {
-                        const isWord = wordParam.test(text[i]);
-
-                        if (phase === 'skip_non_word') {
-                            if (isWord) {
-                                phase = 'skip_word';
-                                candidateNode = scanNode;
-                                candidateOffset = i;
-                            }
-                        } else { // phase === 'skip_word'
-                            if (isWord) {
-                                candidateNode = scanNode;
-                                candidateOffset = i;
-                            } else {
-                                // Hit non-word boundary — candidate is the word start
-                                moveTo(candidateNode, candidateOffset, visualMode);
-                                return;
-                            }
-                        }
-                    }
-                }
-
-                // Move to the previous text node (walker filters out invisible/script/style)
-                nodesChecked++;
-                scanNode = walker.previousNode();
-                if (!scanNode) break;
-                scanIdx = scanNode.textContent.length - 1;
-            }
-
-            // Reached start of content while scanning — land on earliest word char found
-            if (candidateNode) {
-                moveTo(candidateNode, candidateOffset, visualMode);
-            }
-            return;
-        }
+        fn(currentNode, currentOffset, walker, visualMode);
     }
 
     function moveTo(node, offset, extend) {
