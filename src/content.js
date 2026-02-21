@@ -228,7 +228,7 @@
         let currentNode = selection.focusNode;
         let currentOffset = selection.focusOffset;
 
-        if (!visualMode) {
+        if (!isVisual()) {
             if (key === 'b' || key === '{') {
                 selection.collapseToStart();
             } else {
@@ -241,7 +241,7 @@
 
         const walker = createWalker(document.body, NodeFilter.SHOW_TEXT, currentNode);
 
-        fn(currentNode, currentOffset, walker, visualMode);
+        fn(currentNode, currentOffset, walker, isVisual());
     }
 
     function moveTo(node, offset, extend) {
@@ -275,7 +275,8 @@
         }
     }
 
-    let visualMode = false;
+    const state = { mode: 'normal' };
+    function isVisual() { return state.mode === 'visual'; }
 
     // Inject the mode indicator element
     const modeIndicator = document.createElement('div');
@@ -284,7 +285,7 @@
     document.documentElement.appendChild(modeIndicator);
 
     function setVisualMode(on) {
-        visualMode = on;
+        state.mode = on ? 'visual' : 'normal';
         document.documentElement.classList.toggle('vimwalk-visual', on);
         modeIndicator.classList.toggle('visible', on);
 
@@ -314,20 +315,16 @@
         if (isInputActive()) return;
 
         if (e.key === 'v' && !e.ctrlKey && !e.altKey && !e.metaKey) {
-            setVisualMode(!visualMode);
+            setVisualMode(!isVisual());
             e.preventDefault();
             return;
         }
 
-        if (e.key === 'y' && visualMode && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        if (e.key === 'y' && isVisual() && !e.ctrlKey && !e.altKey && !e.metaKey) {
             const selection = window.getSelection();
             const text = selection.toString();
             if (text) {
-                navigator.clipboard.writeText(text).then(() => {
-                    console.log("VimWalk: Yanked to clipboard.");
-                }).catch(err => {
-                    console.error("VimWalk: Failed to copy", err);
-                });
+                navigator.clipboard.writeText(text).catch(() => { });
             }
             setVisualMode(false);
             e.preventDefault();
@@ -335,7 +332,7 @@
         }
 
         if (e.key === 'Escape') {
-            if (visualMode) {
+            if (isVisual()) {
                 setVisualMode(false);
             }
             return;
