@@ -27,7 +27,11 @@
                 "<all_urls>"
             ],
             "js": [
-                "content.js"
+                "state.js",
+                "dom.js",
+                "selection.js",
+                "motions.js",
+                "input.js"
             ],
             "css": [
                 "styles.css"
