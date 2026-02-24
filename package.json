@@ -1,15 +1,20 @@
 {
   "name": "vimwalk",
   "version": "1.0.0",
-  "description": "",
+  "description": "Vim-style navigation for static web content — w, b, }, {, v, y motions",
   "main": "index.js",
   "scripts": {
     "start": "web-ext run --source-dir ./src --firefox-profile ./firefox-profile --keep-profile-changes --start-url about:debugging",
     "lint": "web-ext lint --source-dir ./src",
     "build": "web-ext build --source-dir ./src"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "vim",
+    "navigation",
+    "firefox",
+    "webextension"
+  ],
+  "author": "castaway",
   "license": "ISC",
   "devDependencies": {
     "web-ext": "^9.2.0"
