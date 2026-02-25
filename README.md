@@ -1,49 +1,49 @@
 # VimWalk
 
-Navigate static web content using Vim's `w`, `b`, `}`, `{` motions.
+Navigate static web content using Vim motions.
 
-## Prerequisites
+## Features
 
-To run this project, you need:
+| Key | Action |
+|-----|--------|
+| `w` | Jump to next word |
+| `b` | Jump to previous word |
+| `}` | Jump to next paragraph |
+| `{` | Jump to previous paragraph |
+| `v` | Toggle visual mode (extend selection) |
+| `y` | Yank (copy) selection to clipboard |
+| `Escape` | Exit visual mode |
 
-*   **Node.js**: (You have v24.13.1 installed)
-*   **npm**: (You have v11.8.0 installed)
-*   **Firefox**: (You have it installed at `/usr/bin/firefox`)
+All keys are automatically disabled inside text inputs, textareas, and contenteditable elements.
 
 ## Setup
 
-Install dependencies:
 ```bash
 npm install
 ```
 
 ## Development
 
-To run the extension in a temporary Firefox instance:
-
 ```bash
 npm start
 ```
 
-This will launch Firefox with the extension loaded. The extension will automatically reload if you change source files.
+This launches Firefox with the extension loaded. Source changes trigger automatic reload.
 
-**Note for Linux (Snap) Users:**
-If you see a "Profile Missing" error, it's likely because the Snap version of Firefox cannot access `/tmp`. This project is configured to use a local `firefox-profile` directory to workaround this issue. Ensure this directory exists:
+**Linux (Snap) users:** If you see a "Profile Missing" error, ensure the local profile directory exists:
 ```bash
 mkdir -p firefox-profile
 ```
 
 ## Build
 
-To build the extension for distribution (creates a `.zip` file in `web-ext-artifacts`):
+To build the `.zip` for distribution:
 
 ```bash
 npm run build
 ```
 
 ## Linting
-
-To check the code for issues:
 
 ```bash
 npm run lint
