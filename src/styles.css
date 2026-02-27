@@ -1,14 +1,5 @@
-/* Normal mode: orange cursor highlight (only when VimWalk is active) */
-.vimwalk-active ::selection {
-    background-color: #ff9632 !important;
-    color: #000 !important;
-}
+/* The default ::selection colors for normal and visual mode are now determined by the web page. */
 
-/* Visual mode: blue/purple selection to distinguish from normal cursor */
-.vimwalk-active.vimwalk-visual ::selection {
-    background-color: #6c8ebf !important;
-    color: #fff !important;
-}
 
 /* -- VISUAL -- mode indicator pill */
 #vimwalk-mode-indicator {

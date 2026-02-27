@@ -37,12 +37,6 @@ document.addEventListener('keydown', (e) => {
     // Context safety: ignore if typing in input
     if (isInputActive()) return;
 
-    // Only activate scoped ::selection styles for VimWalk keys
-    const vimKeys = ['w', 'b', '{', '}', 'v', 'y', 'Escape'];
-    if (vimKeys.includes(e.key) && !e.ctrlKey && !e.altKey && !e.metaKey) {
-        document.documentElement.classList.add('vimwalk-active');
-    }
-
     if (e.key === 'v' && !e.ctrlKey && !e.altKey && !e.metaKey) {
         setVisualMode(!isVisual());
         e.preventDefault();
