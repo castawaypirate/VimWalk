@@ -18,8 +18,39 @@ function moveTo(node, offset, extend) {
         selection.addRange(range);
     }
 
-    // Keep cursor in the top 0-30% of the viewport for better reading flow
-    // Use block-level ancestor for consistent scroll behavior (not inline elements like <a>)
+    scrollToNode(node);
+}
+
+function selectWord(node, offset) {
+    if (!node || node.nodeType !== Node.TEXT_NODE) return;
+
+    const text = node.textContent;
+    if (text.length === 0) return;
+
+    let start = offset;
+    let end = offset;
+
+    while (start > 0 && isWordChar(text[start - 1])) {
+        start--;
+    }
+
+    while (end < text.length && isWordChar(text[end])) {
+        end++;
+    }
+
+    if (start === end) return;
+
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.setStart(node, start);
+    range.setEnd(node, end);
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    scrollToNode(node);
+}
+
+function scrollToNode(node) {
     let scrollElement = getBlockAncestor(node.parentElement);
 
     if (scrollElement) {
@@ -42,7 +73,7 @@ modeIndicator.id = 'vimwalk-mode-indicator';
 modeIndicator.textContent = '-- VISUAL --';
 document.documentElement.appendChild(modeIndicator);
 
-function setVisualMode(on) {
+function setVisualMode(on, exitAction = 'cursor') {
     state.mode = on ? 'visual' : 'normal';
     document.documentElement.classList.toggle('vimwalk-visual', on);
     modeIndicator.classList.toggle('visible', on);
@@ -50,18 +81,20 @@ function setVisualMode(on) {
     const sel = window.getSelection();
 
     if (!on && sel.rangeCount > 0) {
-        // Exiting visual mode: restore single-char cursor at focus position
-        const node = sel.focusNode;
-        const offset = sel.focusOffset;
-        sel.removeAllRanges();
-        if (node && node.nodeType === Node.TEXT_NODE && offset < node.textContent.length) {
-            const range = document.createRange();
-            range.setStart(node, offset);
-            range.setEnd(node, offset + 1);
-            sel.addRange(range);
+        if (exitAction === 'clear') {
+            sel.removeAllRanges();
+        } else {
+            const node = sel.focusNode;
+            const offset = sel.focusOffset;
+            sel.removeAllRanges();
+            if (node && node.nodeType === Node.TEXT_NODE && offset < node.textContent.length) {
+                const range = document.createRange();
+                range.setStart(node, offset);
+                range.setEnd(node, offset + 1);
+                sel.addRange(range);
+            }
         }
     } else if (sel.rangeCount > 0) {
-        // Entering visual mode: force re-render of ::selection color
         const range = sel.getRangeAt(0).cloneRange();
         sel.removeAllRanges();
         sel.addRange(range);

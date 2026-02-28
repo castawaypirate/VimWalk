@@ -85,7 +85,11 @@ function motionW(currentNode, currentOffset, walker, extend) {
                     if (!charIsWord) motionState = 'seeking_start';
                 } else if (motionState === 'seeking_start') {
                     if (charIsWord) {
-                        moveTo(currentIterationNode, i, extend);
+                        if (extend) {
+                            moveTo(currentIterationNode, i, extend);
+                        } else {
+                            selectWord(currentIterationNode, i);
+                        }
                         return;
                     }
                 }
@@ -122,7 +126,11 @@ function motionB(currentNode, currentOffset, walker, extend) {
                         candidateNode = scanNode;
                         candidateOffset = i;
                     } else {
-                        moveTo(candidateNode, candidateOffset, extend);
+                        if (extend) {
+                            moveTo(candidateNode, candidateOffset, extend);
+                        } else {
+                            selectWord(candidateNode, candidateOffset);
+                        }
                         return;
                     }
                 }
@@ -136,7 +144,11 @@ function motionB(currentNode, currentOffset, walker, extend) {
     }
 
     if (candidateNode) {
-        moveTo(candidateNode, candidateOffset, extend);
+        if (extend) {
+            moveTo(candidateNode, candidateOffset, extend);
+        } else {
+            selectWord(candidateNode, candidateOffset);
+        }
     }
 }
 

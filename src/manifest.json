@@ -1,6 +1,6 @@
 {
     "manifest_version": 3,
-    "name": "VimWalk",
+    "name": "ReadWalk",
     "version": "1.0",
     "description": "Navigate web pages using Vim motions: w, b (word), }, { (paragraph), v (visual select), y (yank).",
     "icons": {

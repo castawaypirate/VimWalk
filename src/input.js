@@ -43,13 +43,19 @@ document.addEventListener('keydown', (e) => {
         return;
     }
 
-    if (e.key === 'y' && isVisual() && !e.ctrlKey && !e.altKey && !e.metaKey) {
-        const selection = window.getSelection();
+    const selection = window.getSelection();
+    const hasSelection = selection.rangeCount > 0 && selection.toString().length > 0;
+
+    if (e.key === 'y' && hasSelection && !e.ctrlKey && !e.altKey && !e.metaKey) {
         const text = selection.toString();
         if (text) {
             navigator.clipboard.writeText(text).catch(() => { });
         }
-        setVisualMode(false);
+        if (isVisual()) {
+            setVisualMode(false, 'clear');
+        } else {
+            selection.removeAllRanges();
+        }
         e.preventDefault();
         return;
     }
@@ -57,6 +63,8 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         if (isVisual()) {
             setVisualMode(false);
+        } else {
+            window.getSelection().removeAllRanges();
         }
         return;
     }

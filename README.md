@@ -1,6 +1,6 @@
-# VimWalk
+# ReadWalk
 
-Navigate static web content using Vim motions.
+Navigate static web content using word and paragraph motions — a visual pacer for reading.
 
 ## Features
 

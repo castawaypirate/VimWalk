@@ -1,7 +1,7 @@
 {
-  "name": "vimwalk",
+  "name": "readwalk",
   "version": "1.0.0",
-  "description": "Vim-style navigation for static web content — w, b, }, {, v, y motions",
+  "description": "Navigate static web content using word and paragraph motions — a visual pacer for reading.",
   "main": "index.js",
   "scripts": {
     "start": "web-ext run --source-dir ./src --firefox-profile ./firefox-profile --keep-profile-changes --start-url about:debugging",
@@ -9,8 +9,9 @@
     "build": "web-ext build --source-dir ./src"
   },
   "keywords": [
-    "vim",
+    "reading",
     "navigation",
+    "pacer",
     "firefox",
     "webextension"
   ],
