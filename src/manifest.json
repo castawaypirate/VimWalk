@@ -2,17 +2,24 @@
     "manifest_version": 3,
     "name": "ReadWalk",
     "version": "1.0",
-    "description": "Navigate web pages using Vim motions: w, b (word), }, { (paragraph), v (visual select), y (yank).",
+    "description": "Navigate web pages using word and paragraph motions — a visual pacer for reading with mouse support.",
     "icons": {
         "48": "icons/icon-48.png",
         "128": "icons/icon-128.png"
     },
     "permissions": [
-        "activeTab"
+        "activeTab",
+        "storage"
     ],
+    "action": {
+        "default_popup": "popup.html",
+        "default_icon": {
+            "48": "icons/icon-48.png"
+        }
+    },
     "browser_specific_settings": {
         "gecko": {
-            "id": "vimwalk@example.com",
+            "id": "readwalk@example.com",
             "strict_min_version": "109.0",
             "data_collection_permissions": {
                 "required": [
@@ -31,6 +38,7 @@
                 "dom.js",
                 "selection.js",
                 "motions.js",
+                "mouse.js",
                 "input.js"
             ],
             "css": [

@@ -69,13 +69,13 @@ function scrollToNode(node) {
 
 // Inject the mode indicator element
 const modeIndicator = document.createElement('div');
-modeIndicator.id = 'vimwalk-mode-indicator';
+modeIndicator.id = 'readwalk-mode-indicator';
 modeIndicator.textContent = '-- VISUAL --';
 document.documentElement.appendChild(modeIndicator);
 
 function setVisualMode(on, exitAction = 'cursor') {
     state.mode = on ? 'visual' : 'normal';
-    document.documentElement.classList.toggle('vimwalk-visual', on);
+    document.documentElement.classList.toggle('readwalk-visual', on);
     modeIndicator.classList.toggle('visible', on);
 
     const sel = window.getSelection();

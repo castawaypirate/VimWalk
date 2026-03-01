@@ -2,7 +2,7 @@
 
 
 /* -- VISUAL -- mode indicator pill */
-#vimwalk-mode-indicator {
+#readwalk-mode-indicator {
     position: fixed;
     bottom: 12px;
     right: 12px;
@@ -22,7 +22,33 @@
     transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
-#vimwalk-mode-indicator.visible {
+#readwalk-mode-indicator.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* -- MOUSE -- mode indicator pill */
+#readwalk-mouse-indicator {
+    position: fixed;
+    bottom: 12px;
+    right: 120px;
+    z-index: 2147483647;
+    padding: 4px 14px;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: #e0e0e0;
+    background: rgba(30, 30, 30, 0.85);
+    border: 1px solid rgba(142, 191, 108, 0.5);
+    border-radius: 4px;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+#readwalk-mouse-indicator.visible {
     opacity: 1;
     transform: translateY(0);
 }
